@@ -81,15 +81,7 @@ func (s *Server) setupMiddleware() {
 	}))
 
 	// Security headers
-	s.app.Use(helmet.New(helmet.Config{
-		ContentSecurityPolicy:   "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'",
-		XFrameOptions:           "DENY",
-		XContentTypeNoSniff:     "nosniff",
-		ReferrerPolicy:          "strict-origin-when-cross-origin",
-		CrossOriginEmbedderPolicy: "require-corp",
-		CrossOriginOpenerPolicy:   "same-origin",
-		CrossOriginResourcePolicy: "same-origin",
-	}))
+	s.app.Use(helmet.New())
 
 	// CORS
 	s.app.Use(cors.New(cors.Config{

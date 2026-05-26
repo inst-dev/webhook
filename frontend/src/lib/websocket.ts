@@ -7,29 +7,39 @@ interface WSMessage {
 
 class WebSocketClient {
   private ws: WebSocket | null = null;
-  private url: string;
   private listeners: Map<string, Set<WSCallback>> = new Map();
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
   private reconnectDelay = 1000;
   private isIntentionalClose = false;
 
-  constructor() {
-    this.url = process.env.NEXT_PUBLIC_WS_URL || 'wss://ws.webhook.inst.lk';
+  private getWsUrl(): string {
+    if (typeof window === 'undefined') return '';
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
+    if (wsUrl) return wsUrl;
+    // Default: use same host with wss/ws protocol
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}`;
   }
 
   connect(token: string, endpointId?: string): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      return;
-    }
+    if (typeof window === 'undefined') return;
+    if (this.ws?.readyState === WebSocket.OPEN) return;
 
-    let wsUrl = `${this.url}/ws?token=${token}`;
+    const baseUrl = this.getWsUrl();
+    let wsUrl = `${baseUrl}/ws?token=${token}`;
     if (endpointId) {
       wsUrl += `&endpoint_id=${endpointId}`;
     }
 
     this.isIntentionalClose = false;
-    this.ws = new WebSocket(wsUrl);
+
+    try {
+      this.ws = new WebSocket(wsUrl);
+    } catch (err) {
+      console.error('WebSocket connection failed:', err);
+      return;
+    }
 
     this.ws.onopen = () => {
       this.reconnectAttempts = 0;
@@ -53,15 +63,15 @@ class WebSocketClient {
       }
     };
 
-    this.ws.onerror = (error) => {
-      this.emit('error', error);
+    this.ws.onerror = () => {
+      // Silently handle - onclose will fire after this
     };
   }
 
   private reconnect(token: string, endpointId?: string): void {
     this.reconnectAttempts++;
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-    
+
     setTimeout(() => {
       this.connect(token, endpointId);
     }, Math.min(delay, 30000));
@@ -85,6 +95,10 @@ class WebSocketClient {
     return () => {
       this.listeners.get(event)?.delete(callback);
     };
+  }
+
+  off(event: string): void {
+    this.listeners.delete(event);
   }
 
   private emit(event: string, data: any): void {

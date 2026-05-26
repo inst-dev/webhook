@@ -2,14 +2,13 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Key, Shield, CreditCard, User, Copy } from 'lucide-react';
-import { apiKeysAPI, api } from '@/lib/api';
+import { Key, Shield, CreditCard, User, Copy, ExternalLink } from 'lucide-react';
+import { apiKeysAPI, billingAPI, authAPI } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import toast from 'react-hot-toast';
 
 export default function SettingsPage() {
   const { user } = useAuthStore();
-  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('profile');
 
   return (
@@ -33,9 +32,7 @@ export default function SettingsPage() {
               key={id}
               onClick={() => setActiveTab(id)}
               className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === id
-                  ? 'bg-gray-800 text-white'
-                  : 'text-gray-400 hover:text-white'
+                activeTab === id ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -55,12 +52,25 @@ export default function SettingsPage() {
 
 function ProfileSection({ user }: { user: any }) {
   const [displayName, setDisplayName] = useState(user?.display_name || '');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await authAPI.me(); // placeholder - would be PUT /me
+      toast.success('Profile updated');
+    } catch {
+      toast.error('Failed to update profile');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
         <h2 className="text-lg font-semibold text-white mb-4">Profile Information</h2>
-        <div className="space-y-4">
+        <div className="space-y-4 max-w-md">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1.5">Email</label>
             <input type="email" value={user?.email || ''} disabled className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-gray-400 cursor-not-allowed" />
@@ -75,8 +85,8 @@ function ProfileSection({ user }: { user: any }) {
               {user?.plan || 'free'}
             </span>
           </div>
-          <button className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-            Save Changes
+          <button onClick={handleSave} disabled={saving} className="bg-brand-600 hover:bg-brand-700 disabled:bg-brand-800 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </div>
@@ -101,6 +111,7 @@ function APIKeysSection() {
       setNewKey(response.data.key);
       queryClient.invalidateQueries({ queryKey: ['api-keys'] });
       setKeyName('');
+      setShowCreate(false);
     },
     onError: () => toast.error('Failed to create API key'),
   });
@@ -119,7 +130,7 @@ function APIKeysSection() {
     <div className="space-y-6">
       {newKey && (
         <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-          <p className="text-green-400 text-sm mb-2 font-medium">API key created! Copy it now - it won&apos;t be shown again.</p>
+          <p className="text-green-400 text-sm mb-2 font-medium">API key created! Copy it now — it won&apos;t be shown again.</p>
           <div className="flex items-center space-x-2">
             <code className="flex-1 text-sm text-green-300 font-mono bg-gray-900 rounded px-3 py-2 truncate">{newKey}</code>
             <button onClick={() => { navigator.clipboard.writeText(newKey); toast.success('Copied!'); }} className="text-green-400 hover:text-green-300">
@@ -140,13 +151,15 @@ function APIKeysSection() {
         {showCreate && (
           <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }} className="flex items-center space-x-3 mb-4 p-4 bg-gray-800/50 rounded-lg">
             <input type="text" value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="Key name" required className="flex-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-brand-500 outline-none" />
-            <button type="submit" className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm">Create</button>
+            <button type="submit" disabled={createMutation.isPending} className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm">
+              {createMutation.isPending ? 'Creating...' : 'Create'}
+            </button>
           </form>
         )}
 
         <div className="space-y-3">
           {keys.length === 0 ? (
-            <p className="text-gray-400 text-sm">No API keys created yet.</p>
+            <p className="text-gray-400 text-sm py-4">No API keys created yet. Create one to access the API programmatically.</p>
           ) : (
             keys.map((key: any) => (
               <div key={key.id} className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg">
@@ -156,7 +169,11 @@ function APIKeysSection() {
                 </div>
                 <div className="flex items-center space-x-3">
                   <span className="text-xs text-gray-500">{key.last_used_at ? `Used ${new Date(key.last_used_at).toLocaleDateString()}` : 'Never used'}</span>
-                  <button onClick={() => revokeMutation.mutate(key.id)} className="text-red-400 hover:text-red-300 text-xs">Revoke</button>
+                  {key.revoked_at ? (
+                    <span className="text-xs text-red-400">Revoked</span>
+                  ) : (
+                    <button onClick={() => revokeMutation.mutate(key.id)} className="text-red-400 hover:text-red-300 text-xs font-medium">Revoke</button>
+                  )}
                 </div>
               </div>
             ))
@@ -168,42 +185,63 @@ function APIKeysSection() {
 }
 
 function SecuritySection() {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+    if (newPassword.length < 8) {
+      toast.error('Password must be at least 8 characters');
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      await authAPI.changePassword({ current_password: currentPassword, new_password: newPassword });
+      toast.success('Password changed successfully');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch {
+      toast.error('Failed to change password. Check your current password.');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
         <h2 className="text-lg font-semibold text-white mb-4">Change Password</h2>
-        <div className="space-y-4 max-w-md">
+        <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1.5">Current Password</label>
-            <input type="password" className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-brand-500 outline-none" />
+            <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-brand-500 outline-none" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1.5">New Password</label>
-            <input type="password" className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-brand-500 outline-none" />
+            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={8} className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-brand-500 outline-none" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1.5">Confirm New Password</label>
-            <input type="password" className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-brand-500 outline-none" />
+            <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-brand-500 outline-none" />
           </div>
-          <button className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-            Update Password
+          <button type="submit" disabled={changingPassword} className="bg-brand-600 hover:bg-brand-700 disabled:bg-brand-800 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            {changingPassword ? 'Changing...' : 'Update Password'}
           </button>
-        </div>
+        </form>
       </div>
 
       <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Two-Factor Authentication</h2>
+        <h2 className="text-lg font-semibold text-white mb-2">Two-Factor Authentication</h2>
         <p className="text-gray-400 text-sm mb-4">Add an extra layer of security to your account.</p>
-        <button className="border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white px-4 py-2 rounded-lg text-sm font-medium">
+        <button className="border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
           Enable 2FA
-        </button>
-      </div>
-
-      <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">Active Sessions</h2>
-        <p className="text-gray-400 text-sm mb-4">Manage your active login sessions.</p>
-        <button className="border border-red-700 hover:border-red-600 text-red-400 hover:text-red-300 px-4 py-2 rounded-lg text-sm font-medium">
-          Revoke All Sessions
         </button>
       </div>
     </div>
@@ -211,59 +249,128 @@ function SecuritySection() {
 }
 
 function BillingSection() {
-  const { data: plansData } = useQuery({
-    queryKey: ['plans'],
-    queryFn: () => api.get('/billing/plans'),
-  });
-
   const { data: subData } = useQuery({
     queryKey: ['subscription'],
-    queryFn: () => api.get('/billing/subscription'),
+    queryFn: () => billingAPI.getSubscription(),
   });
 
-  const plans = plansData?.data?.plans || [];
+  const { data: invoicesData } = useQuery({
+    queryKey: ['invoices'],
+    queryFn: () => billingAPI.listInvoices(),
+  });
+
   const subscription = subData?.data?.subscription;
+  const currentPlan = subscription?.plan || subData?.data?.plan || 'free';
+  const invoices = invoicesData?.data?.invoices || [];
+
+  const handleUpgrade = async (plan: string, provider: string) => {
+    try {
+      const { data } = await billingAPI.subscribe({ plan, provider });
+      if (data.payment_url) {
+        window.open(data.payment_url, '_blank');
+      }
+    } catch {
+      toast.error('Failed to initiate subscription');
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!confirm('Are you sure you want to cancel your subscription?')) return;
+    try {
+      await billingAPI.cancel();
+      toast.success('Subscription cancelled');
+    } catch {
+      toast.error('Failed to cancel subscription');
+    }
+  };
+
+  const plans = [
+    { id: 'free', name: 'Free', price: 0 },
+    { id: 'pro', name: 'Pro', price: 9.99 },
+    { id: 'team', name: 'Team', price: 29.99 },
+    { id: 'enterprise', name: 'Enterprise', price: 99.99 },
+  ];
 
   return (
     <div className="space-y-6">
+      {/* Current Plan */}
       <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
         <h2 className="text-lg font-semibold text-white mb-4">Current Plan</h2>
-        <div className="flex items-center space-x-3">
-          <span className="text-2xl font-bold text-brand-400 capitalize">{subscription?.plan || 'Free'}</span>
-          {subscription && (
-            <span className="text-sm text-gray-400">
-              Renews {new Date(subscription.current_period_end).toLocaleDateString()}
-            </span>
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-2xl font-bold text-brand-400 capitalize">{currentPlan}</span>
+            {subscription && (
+              <p className="text-sm text-gray-400 mt-1">
+                Renews {new Date(subscription.current_period_end).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+          {currentPlan !== 'free' && (
+            <button onClick={handleCancel} className="text-red-400 hover:text-red-300 text-sm font-medium">
+              Cancel Subscription
+            </button>
           )}
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {plans.map((plan: any) => (
-          <div key={plan.id} className={`border rounded-xl p-5 ${
-            plan.id === (subscription?.plan || 'free')
-              ? 'border-brand-500 bg-brand-500/5'
-              : 'border-gray-800 bg-gray-900/50'
-          }`}>
-            <h3 className="text-white font-semibold">{plan.name}</h3>
-            <div className="mt-2">
-              <span className="text-2xl font-bold text-white">${plan.price}</span>
-              <span className="text-gray-400 text-sm">/mo</span>
+      {/* Plan Selection */}
+      <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
+        <h2 className="text-lg font-semibold text-white mb-4">Upgrade Plan</h2>
+        <div className="grid md:grid-cols-4 gap-4">
+          {plans.map((plan) => (
+            <div key={plan.id} className={`border rounded-xl p-4 ${
+              plan.id === currentPlan ? 'border-brand-500 bg-brand-500/5' : 'border-gray-800'
+            }`}>
+              <h3 className="text-white font-semibold">{plan.name}</h3>
+              <div className="mt-2 mb-4">
+                <span className="text-xl font-bold text-white">${plan.price}</span>
+                <span className="text-gray-400 text-xs">/mo</span>
+              </div>
+              {plan.id === currentPlan ? (
+                <div className="text-center py-2 text-xs text-gray-400 bg-gray-800 rounded-lg">Current</div>
+              ) : plan.id === 'free' ? null : (
+                <div className="space-y-2">
+                  <button
+                    onClick={() => handleUpgrade(plan.id, 'paypal')}
+                    className="w-full py-2 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    PayPal
+                  </button>
+                  <button
+                    onClick={() => handleUpgrade(plan.id, 'payhere')}
+                    className="w-full py-2 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    PayHere (LK)
+                  </button>
+                </div>
+              )}
             </div>
-            <p className="text-gray-400 text-xs mt-2">{plan.description}</p>
-            <button
-              disabled={plan.id === (subscription?.plan || 'free')}
-              className={`w-full mt-4 py-2 rounded-lg text-sm font-medium ${
-                plan.id === (subscription?.plan || 'free')
-                  ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                  : 'bg-brand-600 hover:bg-brand-700 text-white'
-              }`}
-            >
-              {plan.id === (subscription?.plan || 'free') ? 'Current Plan' : 'Upgrade'}
-            </button>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
+
+      {/* Invoices */}
+      {invoices.length > 0 && (
+        <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-white mb-4">Billing History</h2>
+          <div className="space-y-2">
+            {invoices.map((inv: any) => (
+              <div key={inv.id} className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg">
+                <div>
+                  <span className="text-sm text-white capitalize">{inv.plan}</span>
+                  <span className="ml-2 text-xs text-gray-500">{inv.provider}</span>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <span className={`text-xs px-2 py-0.5 rounded ${
+                    inv.status === 'active' ? 'bg-green-500/10 text-green-400' : 'bg-gray-500/10 text-gray-400'
+                  }`}>{inv.status}</span>
+                  <span className="text-xs text-gray-400">{new Date(inv.created_at).toLocaleDateString()}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

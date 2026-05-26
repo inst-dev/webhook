@@ -1,13 +1,11 @@
 package handlers
 
 import (
-	"crypto/hmac"
+	"context"
 	"crypto/md5"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
@@ -369,7 +367,8 @@ func (h *BillingHandler) createPayPalSubscription(userID uuid.UUID, plan string)
 	}
 
 	// Store pending subscription reference
-	h.rdb.Set(nil, fmt.Sprintf("pending_sub:%s:%s", userID.String(), plan), "paypal", 24*time.Hour)
+	ctx := context.Background()
+	h.rdb.Set(ctx, fmt.Sprintf("pending_sub:%s:%s", userID.String(), plan), "paypal", 24*time.Hour)
 
 	return fmt.Sprintf("%s?plan=%s&user=%s", baseURL, plan, userID.String()), nil
 }
@@ -382,7 +381,8 @@ func (h *BillingHandler) createPayHereSubscription(userID uuid.UUID, plan string
 	}
 
 	// Store pending subscription reference
-	h.rdb.Set(nil, fmt.Sprintf("pending_sub:%s:%s", userID.String(), plan), "payhere", 24*time.Hour)
+	ctx2 := context.Background()
+	h.rdb.Set(ctx2, fmt.Sprintf("pending_sub:%s:%s", userID.String(), plan), "payhere", 24*time.Hour)
 
 	return fmt.Sprintf("%s?merchant_id=%s&order_id=%s", baseURL, h.cfg.PayHere.MerchantID, userID.String()), nil
 }
@@ -404,7 +404,6 @@ func (h *BillingHandler) verifyPayPalSignature(c *fiber.Ctx) bool {
 
 	// In production, implement full PayPal signature verification
 	// using their public certificates
-	_ = io.Discard
 	return true
 }
 
@@ -435,6 +434,3 @@ func (h *BillingHandler) handlePayPalPaymentCompleted(resource json.RawMessage) 
 func (h *BillingHandler) handlePayHerePaymentSuccess(orderID, paymentID string) {
 	log.Info().Str("order_id", orderID).Str("payment_id", paymentID).Msg("PayHere payment success")
 }
-
-// Unused import suppression
-var _ = hmac.New(sha256.New, nil)
