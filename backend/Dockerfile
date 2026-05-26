@@ -12,6 +12,9 @@ WORKDIR /app
 # Copy source code
 COPY . .
 
+# Force cache bust on rebuild
+ARG CACHEBUST=1
+
 # Download dependencies and generate go.sum
 RUN go mod tidy && go mod download
 

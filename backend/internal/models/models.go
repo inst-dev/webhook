@@ -16,7 +16,7 @@ type User struct {
 	Plan            string     `json:"plan" db:"plan"`
 	EmailVerified   bool       `json:"email_verified" db:"email_verified"`
 	TwoFactorEnabled bool     `json:"two_factor_enabled" db:"two_factor_enabled"`
-	TwoFactorSecret string    `json:"-" db:"two_factor_secret"`
+	TwoFactorSecret *string   `json:"-" db:"two_factor_secret"`
 	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
 	LastLoginAt     *time.Time `json:"last_login_at" db:"last_login_at"`
