@@ -1,0 +1,16 @@
+-- Rollback Migration 001
+
+DROP TABLE IF EXISTS custom_domains;
+DROP TABLE IF EXISTS metrics_hourly;
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS subscriptions;
+DROP TABLE IF EXISTS api_keys;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS email_logs;
+DROP TABLE IF EXISTS dns_logs;
+DROP TABLE IF EXISTS requests;
+DROP TABLE IF EXISTS endpoints;
+DROP TABLE IF EXISTS users;
+
+DROP EXTENSION IF EXISTS "pg_trgm";
+DROP EXTENSION IF EXISTS "uuid-ossp";

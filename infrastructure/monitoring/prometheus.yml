@@ -1,0 +1,30 @@
+# Prometheus Configuration for Webhook.inst.lk
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'webhook-api'
+    metrics_path: '/metrics'
+    scheme: http
+    static_configs:
+      - targets: ['api:2200']
+    bearer_token_file: /etc/prometheus/token
+
+  - job_name: 'webhook-worker'
+    metrics_path: '/metrics'
+    scheme: http
+    static_configs:
+      - targets: ['worker:2700']
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
