@@ -2,10 +2,19 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Webhook, Globe, Activity, Mail, Settings, Shield, LogOut } from 'lucide-react';
+import { Webhook, Globe, Activity, Mail, Settings, Shield, LogOut, CreditCard } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
+import { AuthGuard } from '@/components/auth-guard';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthGuard>
+      <DashboardContent>{children}</DashboardContent>
+    </AuthGuard>
+  );
+}
+
+function DashboardContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { logout, user } = useAuthStore();
 
@@ -48,16 +57,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
           ))}
 
-          {user?.plan === 'admin' || user?.plan === 'enterprise' ? (
+          {(user?.plan === 'admin' || user?.plan === 'enterprise') && (
             <Link
               href="/console"
-              className="flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-900/50"
+              className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                pathname === '/console'
+                  ? 'bg-brand-500/10 text-brand-400'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-900/50'
+              }`}
             >
               <Shield className="w-4 h-4" />
               <span>Admin Console</span>
             </Link>
-          ) : null}
+          )}
         </nav>
+
+        {/* Plan Badge */}
+        <div className="px-3 pb-2">
+          <Link href="/dashboard/settings" className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-gray-900/50 border border-gray-800 hover:border-gray-700 transition-colors">
+            <CreditCard className="w-4 h-4 text-brand-400" />
+            <span className="text-xs text-gray-300 capitalize">{user?.plan || 'free'} plan</span>
+          </Link>
+        </div>
 
         <div className="p-3 border-t border-gray-800/50">
           <div className="px-3 py-2 mb-2">

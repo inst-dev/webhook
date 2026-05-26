@@ -15,6 +15,9 @@ export default function HomePage() {
               <span className="text-xl font-bold text-white">Webhook.inst.lk</span>
             </div>
             <div className="flex items-center space-x-4">
+              <Link href="/pricing" className="text-gray-300 hover:text-white px-4 py-2 text-sm transition-colors">
+                Pricing
+              </Link>
               <Link href="/login" className="text-gray-300 hover:text-white px-4 py-2 text-sm transition-colors">
                 Sign In
               </Link>
@@ -53,10 +56,10 @@ export default function HomePage() {
               Create Free Endpoint
             </Link>
             <Link
-              href="/docs"
+              href="/pricing"
               className="w-full sm:w-auto border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white px-8 py-3 rounded-lg font-medium transition-colors text-lg"
             >
-              View Documentation
+              View Pricing
             </Link>
           </div>
         </div>

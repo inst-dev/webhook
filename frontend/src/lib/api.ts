@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.webhook.inst.lk';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export const api = axios.create({
   baseURL: API_BASE_URL + '/api/v1',
@@ -55,6 +55,14 @@ export const authAPI = {
   logout: () => api.post('/auth/logout'),
   refresh: () => api.post('/auth/refresh'),
   me: () => api.get('/me'),
+  forgotPassword: (email: string) =>
+    api.post('/auth/forgot-password', { email }),
+  resetPassword: (token: string, password: string) =>
+    api.post('/auth/reset-password', { token, password }),
+  verifyEmail: (token: string) =>
+    api.post('/auth/verify-email', { token }),
+  changePassword: (data: { current_password: string; new_password: string }) =>
+    api.put('/me/password', data),
 };
 
 // Endpoints API
@@ -97,4 +105,14 @@ export const apiKeysAPI = {
     api.post('/api-keys', data),
   list: () => api.get('/api-keys'),
   revoke: (id: string) => api.delete(`/api-keys/${id}`),
+};
+
+// Billing API
+export const billingAPI = {
+  listPlans: () => api.get('/billing/plans'),
+  getSubscription: () => api.get('/billing/subscription'),
+  subscribe: (data: { plan: string; provider: string }) =>
+    api.post('/billing/subscribe', data),
+  cancel: () => api.post('/billing/cancel'),
+  listInvoices: () => api.get('/billing/invoices'),
 };
