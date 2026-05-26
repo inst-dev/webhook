@@ -179,10 +179,11 @@ func (s *Server) setupRoutes() {
 	requests.Post("/:id/replay", requestHandler.Replay)
 
 	// API Key routes
+	apiKeyHandler := handlers.NewAPIKeyHandler(apiKeyService)
 	apiKeys := protected.Group("/api-keys")
-	apiKeys.Post("/", handlers.NewAPIKeyHandler(apiKeyService).Create)
-	apiKeys.Get("/", handlers.NewAPIKeyHandler(apiKeyService).List)
-	apiKeys.Delete("/:id", handlers.NewAPIKeyHandler(apiKeyService).Revoke)
+	apiKeys.Post("/", apiKeyHandler.Create)
+	apiKeys.Get("/", apiKeyHandler.List)
+	apiKeys.Delete("/:id", apiKeyHandler.Revoke)
 
 	// Public API with API key auth
 	publicAPI := v1.Group("/public", apiKeyMiddleware.Authenticate)

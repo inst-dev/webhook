@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
-import { Copy, ArrowLeft, Clock, Globe, Code, Send } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Copy, ArrowLeft, Clock, Globe, Code, Send, Trash2 } from 'lucide-react';
 import { endpointsAPI, requestsAPI } from '@/lib/api';
 import { wsClient } from '@/lib/websocket';
 import { useAuthStore } from '@/store/auth';
@@ -14,6 +14,7 @@ export default function EndpointDetailPage() {
   const params = useParams();
   const endpointId = params.id as string;
   const { accessToken } = useAuthStore();
+  const queryClient = useQueryClient();
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [requests, setRequests] = useState<any[]>([]);
 
@@ -26,6 +27,16 @@ export default function EndpointDetailPage() {
     queryKey: ['requests', endpointId],
     queryFn: () => requestsAPI.list(endpointId, { limit: 50 }),
     refetchInterval: 5000,
+  });
+
+  const deleteRequestMutation = useMutation({
+    mutationFn: (requestId: string) => requestsAPI.delete(endpointId, requestId),
+    onSuccess: () => {
+      setSelectedRequest(null);
+      refetch();
+      toast.success('Request deleted');
+    },
+    onError: () => toast.error('Failed to delete request'),
   });
 
   useEffect(() => {
@@ -71,13 +82,32 @@ export default function EndpointDetailPage() {
   const formatBody = (body: any, contentType: string) => {
     if (!body) return 'No body';
     try {
-      if (typeof body === 'object') {
+      // Handle base64-encoded body (Go []byte serializes to base64 in JSON)
+      let decoded = body;
+      if (typeof body === 'string') {
+        // Try base64 decode
+        try {
+          const binary = atob(body);
+          // Check if it looks like valid text
+          const isText = /^[\x20-\x7E\s]*$/.test(binary.substring(0, 100));
+          if (isText) {
+            decoded = binary;
+          }
+        } catch {
+          decoded = body;
+        }
+      } else if (typeof body === 'object' && body !== null) {
         return JSON.stringify(body, null, 2);
       }
+
       if (contentType?.includes('json')) {
-        return JSON.stringify(JSON.parse(body), null, 2);
+        try {
+          return JSON.stringify(JSON.parse(decoded), null, 2);
+        } catch {
+          return decoded;
+        }
       }
-      return String(body);
+      return String(decoded);
     } catch {
       return String(body);
     }
@@ -167,9 +197,18 @@ export default function EndpointDetailPage() {
                   </span>
                   <span className="text-white font-mono text-sm">{selectedRequest.path}</span>
                 </div>
-                <div className="flex items-center space-x-2 text-xs text-gray-400">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>{new Date(selectedRequest.created_at).toLocaleString()}</span>
+                <div className="flex items-center space-x-4">
+                  <span className="flex items-center space-x-2 text-xs text-gray-400">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>{new Date(selectedRequest.created_at).toLocaleString()}</span>
+                  </span>
+                  <button
+                    onClick={() => { if (confirm('Delete this request?')) deleteRequestMutation.mutate(selectedRequest.id); }}
+                    className="text-gray-400 hover:text-red-400 transition-colors"
+                    title="Delete request"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 

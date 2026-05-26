@@ -172,7 +172,7 @@ func (s *EndpointService) SetCustomResponse(ctx context.Context, userID, endpoin
 
 // generateToken generates a random URL-safe token
 func generateToken() string {
-	b := make([]byte, 16)
+	b := make([]byte, 6)
 	rand.Read(b)
-	return hex.EncodeToString(b)[:12]
+	return hex.EncodeToString(b)
 }
