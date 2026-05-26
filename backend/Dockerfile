@@ -9,12 +9,11 @@ RUN apk add --no-cache git ca-certificates tzdata
 
 WORKDIR /app
 
-# Copy go.mod first for better caching
-COPY go.mod go.sum* ./
-RUN go mod download
-
 # Copy source code
 COPY . .
+
+# Download dependencies and generate go.sum
+RUN go mod tidy && go mod download
 
 # Build API
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /bin/api ./cmd/api

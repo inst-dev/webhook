@@ -38,22 +38,17 @@ func (h *RequestHandler) List(c *fiber.Ctx) error {
 		Offset: offset,
 	}
 
-	var requests []*service.RequestService
-	var total int64
-
 	if search != "" {
-		reqs, t, err := h.requestService.Search(c.Context(), endpointID, search, opts)
-		if err != nil {
+		reqs, total, searchErr := h.requestService.Search(c.Context(), endpointID, search, opts)
+		if searchErr != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error":   "search_failed",
 				"message": "Failed to search requests",
 			})
 		}
-		_ = reqs
-		_ = t
 		return c.JSON(fiber.Map{
 			"requests": reqs,
-			"total":    t,
+			"total":    total,
 			"limit":    limit,
 			"offset":   offset,
 		})
@@ -66,9 +61,6 @@ func (h *RequestHandler) List(c *fiber.Ctx) error {
 			"message": "Failed to list requests",
 		})
 	}
-
-	_ = requests
-	_ = total
 
 	return c.JSON(fiber.Map{
 		"requests": reqs,
