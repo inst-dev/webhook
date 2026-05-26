@@ -24,8 +24,17 @@ export default function LoginPage() {
       const { data } = await authAPI.login({ email, password });
       setUser(data.user);
       setToken(data.access_token);
+      // Set cookie for nginx-level auth check
+      document.cookie = `access_token=${data.access_token}; path=/; max-age=${60*60*24*7}; SameSite=Lax`;
       toast.success('Welcome back!');
-      router.push('/dashboard');
+      // Redirect to stored destination or dashboard
+      const redirect = typeof window !== 'undefined' ? sessionStorage.getItem('redirect_after_login') : null;
+      if (redirect) {
+        sessionStorage.removeItem('redirect_after_login');
+        router.push(redirect);
+      } else {
+        router.push('/dashboard');
+      }
     } catch (error: any) {
       const message = error.response?.data?.message || 'Login failed';
       toast.error(message);

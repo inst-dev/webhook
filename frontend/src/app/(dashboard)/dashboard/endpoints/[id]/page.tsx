@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
-import { Copy, ArrowLeft, Clock, Globe, Code, Send } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Copy, ArrowLeft, Clock, Globe, Code, Send, Trash2 } from 'lucide-react';
 import { endpointsAPI, requestsAPI } from '@/lib/api';
 import { wsClient } from '@/lib/websocket';
 import { useAuthStore } from '@/store/auth';
@@ -14,6 +14,7 @@ export default function EndpointDetailPage() {
   const params = useParams();
   const endpointId = params.id as string;
   const { accessToken } = useAuthStore();
+  const queryClient = useQueryClient();
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [requests, setRequests] = useState<any[]>([]);
 
@@ -28,6 +29,16 @@ export default function EndpointDetailPage() {
     refetchInterval: 5000,
   });
 
+  const deleteRequestMutation = useMutation({
+    mutationFn: (requestId: string) => requestsAPI.delete(endpointId, requestId),
+    onSuccess: () => {
+      setSelectedRequest(null);
+      refetch();
+      toast.success('Request deleted');
+    },
+    onError: () => toast.error('Failed to delete request'),
+  });
+
   useEffect(() => {
     if (requestsData?.data?.requests) {
       setRequests(requestsData.data.requests);
@@ -36,28 +47,67 @@ export default function EndpointDetailPage() {
 
   useEffect(() => {
     if (accessToken) {
-      wsClient.connect(accessToken, endpointId);
-      const unsub = wsClient.on('new_request', (data: any) => {
-        setRequests((prev) => [data, ...prev]);
-        refetch();
-      });
-      return () => {
-        unsub();
-        wsClient.disconnect();
-      };
+      try {
+        wsClient.connect(accessToken, endpointId);
+        const unsub = wsClient.on('new_request', (data: any) => {
+          setRequests((prev) => [data, ...prev]);
+          refetch();
+        });
+        return () => {
+          unsub();
+          wsClient.disconnect();
+        };
+      } catch (e) {
+        // WebSocket connection failed - non-critical, page still works
+        console.warn('WebSocket connection failed:', e);
+      }
     }
   }, [accessToken, endpointId, refetch]);
 
   const endpoint = endpointData?.data;
   const domain = process.env.NEXT_PUBLIC_DOMAIN || 'webhook.inst.lk';
 
+  const safeJsonStringify = (data: any): string => {
+    if (!data) return '{}';
+    try {
+      if (typeof data === 'string') {
+        return JSON.stringify(JSON.parse(data), null, 2);
+      }
+      return JSON.stringify(data, null, 2);
+    } catch {
+      return String(data);
+    }
+  };
+
   const formatBody = (body: any, contentType: string) => {
     if (!body) return 'No body';
     try {
-      if (contentType?.includes('json')) {
-        return JSON.stringify(JSON.parse(typeof body === 'string' ? body : new TextDecoder().decode(new Uint8Array(body))), null, 2);
+      // Handle base64-encoded body (Go []byte serializes to base64 in JSON)
+      let decoded = body;
+      if (typeof body === 'string') {
+        // Try base64 decode
+        try {
+          const binary = atob(body);
+          // Check if it looks like valid text
+          const isText = /^[\x20-\x7E\s]*$/.test(binary.substring(0, 100));
+          if (isText) {
+            decoded = binary;
+          }
+        } catch {
+          decoded = body;
+        }
+      } else if (typeof body === 'object' && body !== null) {
+        return JSON.stringify(body, null, 2);
       }
-      return typeof body === 'string' ? body : new TextDecoder().decode(new Uint8Array(body));
+
+      if (contentType?.includes('json')) {
+        try {
+          return JSON.stringify(JSON.parse(decoded), null, 2);
+        } catch {
+          return decoded;
+        }
+      }
+      return String(decoded);
     } catch {
       return String(body);
     }
@@ -147,9 +197,18 @@ export default function EndpointDetailPage() {
                   </span>
                   <span className="text-white font-mono text-sm">{selectedRequest.path}</span>
                 </div>
-                <div className="flex items-center space-x-2 text-xs text-gray-400">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>{new Date(selectedRequest.created_at).toLocaleString()}</span>
+                <div className="flex items-center space-x-4">
+                  <span className="flex items-center space-x-2 text-xs text-gray-400">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>{new Date(selectedRequest.created_at).toLocaleString()}</span>
+                  </span>
+                  <button
+                    onClick={() => { if (confirm('Delete this request?')) deleteRequestMutation.mutate(selectedRequest.id); }}
+                    className="text-gray-400 hover:text-red-400 transition-colors"
+                    title="Delete request"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 
@@ -161,7 +220,7 @@ export default function EndpointDetailPage() {
                 </h3>
                 <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto">
                   <pre className="text-sm text-gray-300 font-mono whitespace-pre-wrap">
-                    {JSON.stringify(JSON.parse(selectedRequest.headers || '{}'), null, 2)}
+                    {safeJsonStringify(selectedRequest.headers)}
                   </pre>
                 </div>
               </section>

@@ -137,10 +137,10 @@ export default function DashboardPage() {
                       </span>
                     </div>
                     <div className="flex items-center mt-2 space-x-2">
-                      <code className="text-sm text-gray-400 font-mono truncate">
+                      <code className="text-sm text-brand-400 font-mono truncate">
                         https://{domain}/{endpoint.token}
                       </code>
-                      <button onClick={() => copyUrl(endpoint.token)} className="text-gray-500 hover:text-brand-500 flex-shrink-0">
+                      <button onClick={() => copyUrl(endpoint.token)} className="text-gray-500 hover:text-brand-500 flex-shrink-0" title="Copy URL">
                         <Copy className="w-3.5 h-3.5" />
                       </button>
                     </div>

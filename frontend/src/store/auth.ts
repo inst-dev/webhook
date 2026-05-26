@@ -30,6 +30,8 @@ export const useAuthStore = create<AuthState>()(
       setToken: (token) => {
         if (typeof window !== 'undefined') {
           localStorage.setItem('access_token', token);
+          // Set cookie for nginx auth check
+          document.cookie = `access_token=${token}; path=/; max-age=${60*60*24*7}; SameSite=Lax`;
         }
         set({ accessToken: token, isAuthenticated: true });
       },
@@ -38,6 +40,8 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== 'undefined') {
           localStorage.removeItem('access_token');
           localStorage.removeItem('auth-storage');
+          // Clear the nginx auth cookie
+          document.cookie = 'access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
         }
         set({ user: null, accessToken: null, isAuthenticated: false });
       },

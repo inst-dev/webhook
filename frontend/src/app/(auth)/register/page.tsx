@@ -29,6 +29,8 @@ export default function RegisterPage() {
       const { data } = await authAPI.register({ email, password, display_name: displayName });
       setUser(data.user);
       setToken(data.access_token);
+      // Set cookie for nginx-level auth check
+      document.cookie = `access_token=${data.access_token}; path=/; max-age=${60*60*24*7}; SameSite=Lax`;
       toast.success('Account created successfully!');
       router.push('/dashboard');
     } catch (error: any) {

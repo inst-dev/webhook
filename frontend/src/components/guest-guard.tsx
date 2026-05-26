@@ -11,7 +11,14 @@ export function GuestGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace('/dashboard');
+      // Check if there's a redirect target stored (e.g., /console)
+      const redirect = typeof window !== 'undefined' ? sessionStorage.getItem('redirect_after_login') : null;
+      if (redirect) {
+        sessionStorage.removeItem('redirect_after_login');
+        router.replace(redirect);
+      } else {
+        router.replace('/dashboard');
+      }
       return;
     }
     setChecked(true);
