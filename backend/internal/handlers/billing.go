@@ -404,7 +404,6 @@ func (h *BillingHandler) verifyPayPalSignature(c *fiber.Ctx) bool {
 
 	// In production, implement full PayPal signature verification
 	// using their public certificates
-	_ = io.Discard
 	return true
 }
 
