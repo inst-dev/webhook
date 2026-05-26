@@ -30,6 +30,8 @@ export const useAuthStore = create<AuthState>()(
       setToken: (token) => {
         if (typeof window !== 'undefined') {
           localStorage.setItem('access_token', token);
+          // Set cookie for nginx auth check
+          document.cookie = `access_token=${token}; path=/; max-age=${60*60*24*7}; SameSite=Lax`;
         }
         set({ accessToken: token, isAuthenticated: true });
       },
